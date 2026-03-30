@@ -1,0 +1,396 @@
+import { useState } from 'react';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Calendar } from './ui/calendar';
+import { ScrollArea } from './ui/scroll-area';
+import {
+  Heart,
+  Calendar as CalendarIcon,
+  Clock,
+  Users,
+  User,
+  MessageSquare,
+  Activity,
+  LogOut,
+  Menu,
+  Bell,
+  CheckCircle,
+  XCircle,
+  Pause,
+  FileText,
+  TrendingUp,
+} from 'lucide-react';
+import { DoctorSchedule } from './DoctorSchedule';
+import { PatientQueue } from './PatientQueue';
+import { ConsultationInterface } from './ConsultationInterface';
+
+interface DoctorDashboardProps {
+  onNavigate: (page: string) => void;
+  onLogout: () => void;
+}
+
+type DoctorView = 'overview' | 'schedule' | 'patients' | 'consultations';
+
+export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) {
+  const [currentView, setCurrentView] = useState<DoctorView>('overview');
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  // Mock data
+  const todayStats = {
+    totalConsultations: 12,
+    completed: 8,
+    pending: 3,
+    cancelled: 1,
+  };
+
+  const upcomingPatients = [
+    {
+      id: 1,
+      name: 'Ram Sharma',
+      age: 45,
+      time: '10:00 AM',
+      type: 'Voice Call',
+      status: 'waiting',
+      symptoms: 'Fever, Headache',
+    },
+    {
+      id: 2,
+      name: 'Sita Devi',
+      age: 32,
+      time: '10:30 AM',
+      type: 'Text Chat',
+      status: 'upcoming',
+      symptoms: 'Cough, Sore throat',
+    },
+    {
+      id: 3,
+      name: 'Hari Bahadur',
+      age: 58,
+      time: '11:00 AM',
+      type: 'Voice Call',
+      status: 'upcoming',
+      symptoms: 'Chest pain',
+    },
+  ];
+
+  const recentActivity = [
+    {
+      id: 1,
+      patient: 'Krishna Thapa',
+      action: 'Consultation completed',
+      time: '9:45 AM',
+      type: 'completed',
+    },
+    {
+      id: 2,
+      patient: 'Maya Gurung',
+      action: 'Prescription issued',
+      time: '9:30 AM',
+      type: 'prescription',
+    },
+    {
+      id: 3,
+      patient: 'Binod Shrestha',
+      action: 'Follow-up scheduled',
+      time: '9:15 AM',
+      type: 'scheduled',
+    },
+  ];
+
+  const renderContent = () => {
+    switch (currentView) {
+      case 'schedule':
+        return <DoctorSchedule />;
+      case 'patients':
+        return <PatientQueue />;
+      case 'consultations':
+        return <ConsultationInterface />;
+      default:
+        return (
+          <div className="space-y-6">
+            {/* Stats Cards */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Today</p>
+                    <h2 className="mt-2">{todayStats.totalConsultations}</h2>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Users className="w-6 h-6 text-blue-600" />
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Completed</p>
+                    <h2 className="mt-2">{todayStats.completed}</h2>
+                  </div>
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Pending</p>
+                    <h2 className="mt-2">{todayStats.pending}</h2>
+                  </div>
+                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-orange-600" />
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Cancelled</p>
+                    <h2 className="mt-2">{todayStats.cancelled}</h2>
+                  </div>
+                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                    <XCircle className="w-6 h-6 text-red-600" />
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-6">
+              {/* Today's Schedule */}
+              <div className="lg:col-span-2 space-y-6">
+                <Card className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2>Today's Patients</h2>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentView('patients')}>
+                      View All
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {upcomingPatients.map((patient) => (
+                      <Card key={patient.id} className="p-4 bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white">
+                              <User className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-sm">{patient.name}</h3>
+                                <span className="text-xs text-muted-foreground">({patient.age} years)</span>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{patient.symptoms}</p>
+                              <div className="flex items-center gap-3 mt-2">
+                                <div className="flex items-center gap-1 text-xs">
+                                  <Clock className="w-3 h-3" />
+                                  {patient.time}
+                                </div>
+                                <Badge variant="outline" className="text-xs">
+                                  {patient.type}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            {patient.status === 'waiting' ? (
+                              <Button size="sm" onClick={() => setCurrentView('consultations')}>
+                                Start
+                              </Button>
+                            ) : (
+                              <Badge variant="secondary">Upcoming</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* Recent Activity */}
+                <Card className="p-6">
+                  <h2 className="mb-4">Recent Activity</h2>
+                  <div className="space-y-3">
+                    {recentActivity.map((activity) => (
+                      <div key={activity.id} className="flex items-start gap-3 pb-3 border-b last:border-0">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            activity.type === 'completed'
+                              ? 'bg-green-100'
+                              : activity.type === 'prescription'
+                                ? 'bg-blue-100'
+                                : 'bg-purple-100'
+                          }`}
+                        >
+                          {activity.type === 'completed' && <CheckCircle className="w-4 h-4 text-green-600" />}
+                          {activity.type === 'prescription' && <FileText className="w-4 h-4 text-blue-600" />}
+                          {activity.type === 'scheduled' && <CalendarIcon className="w-4 h-4 text-purple-600" />}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <span className="font-medium">{activity.patient}</span> - {activity.action}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{activity.time}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+
+              {/* Calendar & Quick Actions */}
+              <div className="space-y-6">
+                <Card className="p-6">
+                  <h3 className="mb-4">Schedule</h3>
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => date && setSelectedDate(date)}
+                    className="rounded-md border"
+                  />
+                  <Button
+                    className="w-full mt-4"
+                    variant="outline"
+                    onClick={() => setCurrentView('schedule')}
+                  >
+                    Manage Schedule
+                  </Button>
+                </Card>
+
+                <Card className="p-6 bg-gradient-to-br from-blue-50 to-purple-50">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <TrendingUp className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="mb-2 text-sm">Performance This Week</h3>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        You've completed 45 consultations with a 4.8/5.0 average rating.
+                      </p>
+                      <Button variant="link" className="p-0 h-auto text-xs">
+                        View Details
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b sticky top-0 z-40">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+              <Heart className="w-6 h-6 text-red-500" />
+              <span className="font-semibold">TelePharm Nepal</span>
+              <Badge variant="secondary" className="ml-2">
+                Doctor Portal
+              </Badge>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon">
+                <Bell className="w-5 h-5" />
+              </Button>
+              <Button variant="ghost" onClick={onLogout} className="flex items-center gap-2">
+                <LogOut className="w-4 h-4" />
+                <span className="hidden md:inline">Logout</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="container mx-auto px-4 py-6">
+        <div className="grid md:grid-cols-12 gap-6">
+          {/* Sidebar */}
+          <aside className={`md:col-span-3 ${showMobileMenu ? 'block' : 'hidden'} md:block`}>
+            <Card className="p-4">
+              <div className="mb-6 pb-6 border-b">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white">
+                    <User className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm">Dr. Sita Patel</h3>
+                    <p className="text-xs text-muted-foreground">General Medicine</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Button
+                  variant={currentView === 'overview' ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setCurrentView('overview');
+                    setShowMobileMenu(false);
+                  }}
+                >
+                  <Activity className="w-4 h-4 mr-2" />
+                  Overview
+                </Button>
+                <Button
+                  variant={currentView === 'patients' ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setCurrentView('patients');
+                    setShowMobileMenu(false);
+                  }}
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Patient Queue
+                </Button>
+                <Button
+                  variant={currentView === 'consultations' ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setCurrentView('consultations');
+                    setShowMobileMenu(false);
+                  }}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Consultations
+                </Button>
+                <Button
+                  variant={currentView === 'schedule' ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setCurrentView('schedule');
+                    setShowMobileMenu(false);
+                  }}
+                >
+                  <CalendarIcon className="w-4 h-4 mr-2" />
+                  Schedule
+                </Button>
+              </div>
+            </Card>
+          </aside>
+
+          {/* Main Content */}
+          <main className="md:col-span-9">{renderContent()}</main>
+        </div>
+      </div>
+    </div>
+  );
+}
