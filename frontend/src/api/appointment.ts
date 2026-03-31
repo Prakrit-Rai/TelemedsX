@@ -45,3 +45,11 @@ export const cancelAppointment = async (appointmentId: number) => {
     },
   });
 };
+
+export const completeAppointment = (appointmentId: number) => {
+  const token = localStorage.getItem("token");
+
+  return axios.put(`${API}/${appointmentId}/complete`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+};

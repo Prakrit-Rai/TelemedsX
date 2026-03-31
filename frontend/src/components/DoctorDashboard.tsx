@@ -25,6 +25,8 @@ import {
 import { DoctorSchedule } from './DoctorSchedule';
 import { PatientQueue } from './PatientQueue';
 import { ConsultationInterface } from './ConsultationInterface';
+import { useEffect } from 'react';
+import { getDoctorAppointments, completeAppointment, cancelAppointment } from '../api/appointment';
 
 interface DoctorDashboardProps {
   onNavigate: (page: string) => void;
@@ -37,44 +39,59 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
   const [currentView, setCurrentView] = useState<DoctorView>('overview');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const handleComplete = async (id: number) => {
+  try {
+    await completeAppointment(id);
+  } catch (err) {
+    console.error(err);
+    alert("Failed to complete appointment");
+  }
+};
 
-  // Mock data
-  const todayStats = {
-    totalConsultations: 12,
-    completed: 8,
-    pending: 3,
-    cancelled: 1,
+const handleCancel = async (id: number) => {
+  try {
+    await cancelAppointment(id);
+  } catch (err) {
+    console.error(err);
+    alert("Failed to cancel appointment");
+  }
+};
+  useEffect(() => {
+  const loadDoctorData = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+      if (!user.id) return;
+
+      const res = await getDoctorAppointments(user.id);
+      setAppointments(res.data);
+
+    } catch (err) {
+      console.error("Doctor data error", err);
+    }
   };
 
-  const upcomingPatients = [
-    {
-      id: 1,
-      name: 'Ram Sharma',
-      age: 45,
-      time: '10:00 AM',
-      type: 'Voice Call',
-      status: 'waiting',
-      symptoms: 'Fever, Headache',
-    },
-    {
-      id: 2,
-      name: 'Sita Devi',
-      age: 32,
-      time: '10:30 AM',
-      type: 'Text Chat',
-      status: 'upcoming',
-      symptoms: 'Cough, Sore throat',
-    },
-    {
-      id: 3,
-      name: 'Hari Bahadur',
-      age: 58,
-      time: '11:00 AM',
-      type: 'Voice Call',
-      status: 'upcoming',
-      symptoms: 'Chest pain',
-    },
-  ];
+  loadDoctorData();
+
+  // 🔥 Optional: real-time polling
+  const interval = setInterval(loadDoctorData, 5000);
+  return () => clearInterval(interval);
+
+}, []);
+
+  const todayAppointments = appointments.filter(
+  (a) =>
+    new Date(a.appointmentTime).toDateString() ===
+    new Date().toDateString()
+);
+
+  const todayStats = {
+    totalConsultations: todayAppointments.length,
+    completed: todayAppointments.filter(a => a.status === "COMPLETED").length,
+    pending: todayAppointments.filter(a => a.status === "BOOKED").length,
+    cancelled: todayAppointments.filter(a => a.status === "CANCELLED").length,
+  };
 
   const recentActivity = [
     {
@@ -174,42 +191,80 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
                   </div>
 
                   <div className="space-y-3">
-                    {upcomingPatients.map((patient) => (
-                      <Card key={patient.id} className="p-4 bg-gray-50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white">
-                              <User className="w-6 h-6" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-sm">{patient.name}</h3>
-                                <span className="text-xs text-muted-foreground">({patient.age} years)</span>
+                    {appointments.map((appt) => {
+                      const time = new Date(appt.appointmentTime).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+
+                      const isToday =
+                        new Date(appt.appointmentTime).toDateString() === new Date().toDateString();
+
+                      return (
+                        <Card key={appt.id} className="p-4 bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white">
+                                <User className="w-6 h-6" />
                               </div>
-                              <p className="text-sm text-muted-foreground">{patient.symptoms}</p>
-                              <div className="flex items-center gap-3 mt-2">
-                                <div className="flex items-center gap-1 text-xs">
-                                  <Clock className="w-3 h-3" />
-                                  {patient.time}
+                              <div>
+                                <h3 className="text-sm">
+                                  {appt.patientName || `Patient #${appt.patientId}`}
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                  Appointment Scheduled
+                                </p>
+
+                                <div className="flex items-center gap-3 mt-2">
+                                  <div className="flex items-center gap-1 text-xs">
+                                    <Clock className="w-3 h-3" />
+                                    {time}
+                                  </div>
+
+                                  <Badge variant="outline" className="text-xs">
+                                    {appt.status}
+                                  </Badge>
                                 </div>
-                                <Badge variant="outline" className="text-xs">
-                                  {patient.type}
-                                </Badge>
                               </div>
                             </div>
+
+                            <div className="flex gap-2">
+                              {appt.status === "BOOKED" && (
+                                <>
+                                  <Button size="sm" onClick={() => setCurrentView('consultations')}>
+                                    Start
+                                  </Button>
+
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleComplete(appt.id)}
+                                  >
+                                    Complete
+                                  </Button>
+
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleCancel(appt.id)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </>
+                              )}
+
+                              {appt.status === "COMPLETED" && (
+                                <Badge className="bg-green-600 text-white">Completed</Badge>
+                              )}
+
+                              {appt.status === "CANCELLED" && (
+                                <Badge variant="destructive">Cancelled</Badge>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            {patient.status === 'waiting' ? (
-                              <Button size="sm" onClick={() => setCurrentView('consultations')}>
-                                Start
-                              </Button>
-                            ) : (
-                              <Badge variant="secondary">Upcoming</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
+                        </Card>
+                      );
+                    })}
                   </div>
                 </Card>
 
@@ -251,7 +306,11 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
                   <Calendar
                     mode="single"
                     selected={selectedDate}
-                    onSelect={(date) => date && setSelectedDate(date)}
+                    onSelect={(date: Date | undefined) => {
+                      if (date) {
+                        setSelectedDate(date);
+                      }
+                    }}
                     className="rounded-md border"
                   />
                   <Button

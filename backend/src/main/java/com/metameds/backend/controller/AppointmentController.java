@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.metameds.backend.dto.AppointmentResponseDto;
 import com.metameds.backend.model.Appointment;
 import com.metameds.backend.service.AppointmentService;
 
@@ -39,10 +40,10 @@ public class AppointmentController {
         return appointmentService.getPatientAppointments(patientId);
     }
 
-    @GetMapping("/doctor/{doctorId}")
-    public List<Appointment> getDoctorAppointments(@PathVariable Long doctorId) {
-        return appointmentService.getDoctorAppointments(doctorId);
-    }
+@GetMapping("/doctor/{doctorId}")
+public List<AppointmentResponseDto> getDoctorAppointments(@PathVariable Long doctorId) {
+    return appointmentService.getDoctorAppointments(doctorId);
+}
 
     // 🔥 NEW ENDPOINT
     @GetMapping("/slots")
@@ -61,4 +62,10 @@ public class AppointmentController {
         appointmentService.cancelAppointment(id);
         return ResponseEntity.ok("Appointment cancelled");
     }
+
+    @PutMapping("/{id}/complete")
+    public ResponseEntity<?> completeAppointment(@PathVariable Long id) {
+    appointmentService.completeAppointment(id);
+    return ResponseEntity.ok("Appointment marked as completed");
+}
 }
