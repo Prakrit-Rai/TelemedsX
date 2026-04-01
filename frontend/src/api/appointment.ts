@@ -53,3 +53,17 @@ export const completeAppointment = (appointmentId: number) => {
     headers: { Authorization: `Bearer ${token}` }
   });
 };
+
+export const getRecentActivity = (doctorId: number) => {
+  return axios.get(`http://localhost:8081/api/appointments/doctor/${doctorId}/activity`);
+};
+
+export const startAppointment = async (id: number) => {
+  const token = getToken();
+  return axios.put(`${API}/${id}/start`, {}, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+

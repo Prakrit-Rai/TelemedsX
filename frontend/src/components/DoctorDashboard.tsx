@@ -26,7 +26,7 @@ import { DoctorSchedule } from './DoctorSchedule';
 import { PatientQueue } from './PatientQueue';
 import { ConsultationInterface } from './ConsultationInterface';
 import { useEffect } from 'react';
-import { getDoctorAppointments, completeAppointment, cancelAppointment } from '../api/appointment';
+import { getDoctorAppointments, completeAppointment, cancelAppointment, getRecentActivity } from '../api/appointment';
 
 interface DoctorDashboardProps {
   onNavigate: (page: string) => void;
@@ -40,6 +40,8 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [doctor, setDoctor] = useState<any>(null);
   const handleComplete = async (id: number) => {
   try {
     await completeAppointment(id);
@@ -61,11 +63,16 @@ const handleCancel = async (id: number) => {
   const loadDoctorData = async () => {
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
+      setDoctor(user);
 
       if (!user.id) return;
 
       const res = await getDoctorAppointments(user.id);
       setAppointments(res.data);
+
+      const res2 = await getRecentActivity(user.id);
+      setActivities(res2.data);
+      
 
     } catch (err) {
       console.error("Doctor data error", err);
@@ -74,48 +81,29 @@ const handleCancel = async (id: number) => {
 
   loadDoctorData();
 
-  // 🔥 Optional: real-time polling
+  // real-time polling
   const interval = setInterval(loadDoctorData, 5000);
   return () => clearInterval(interval);
 
 }, []);
 
-  const todayAppointments = appointments.filter(
-  (a) =>
-    new Date(a.appointmentTime).toDateString() ===
-    new Date().toDateString()
-);
+  const todayAppointments = appointments.filter((a) => {
+    const apptDate = new Date(a.appointmentTime);
+    const today = new Date();
 
+    return (
+      apptDate.getFullYear() === today.getFullYear() &&
+      apptDate.getMonth() === today.getMonth() &&
+      apptDate.getDate() === today.getDate()
+    );
+  });
+  
   const todayStats = {
     totalConsultations: todayAppointments.length,
     completed: todayAppointments.filter(a => a.status === "COMPLETED").length,
     pending: todayAppointments.filter(a => a.status === "BOOKED").length,
     cancelled: todayAppointments.filter(a => a.status === "CANCELLED").length,
   };
-
-  const recentActivity = [
-    {
-      id: 1,
-      patient: 'Krishna Thapa',
-      action: 'Consultation completed',
-      time: '9:45 AM',
-      type: 'completed',
-    },
-    {
-      id: 2,
-      patient: 'Maya Gurung',
-      action: 'Prescription issued',
-      time: '9:30 AM',
-      type: 'prescription',
-    },
-    {
-      id: 3,
-      patient: 'Binod Shrestha',
-      action: 'Follow-up scheduled',
-      time: '9:15 AM',
-      type: 'scheduled',
-    },
-  ];
 
   const renderContent = () => {
     switch (currentView) {
@@ -191,7 +179,7 @@ const handleCancel = async (id: number) => {
                   </div>
 
                   <div className="space-y-3">
-                    {appointments.map((appt) => {
+                    {todayAppointments.map((appt) => {
                       const time = new Date(appt.appointmentTime).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -208,9 +196,9 @@ const handleCancel = async (id: number) => {
                                 <User className="w-6 h-6" />
                               </div>
                               <div>
-                                <h3 className="text-sm">
-                                  {appt.patientName || `Patient #${appt.patientId}`}
-                                </h3>
+                              <h3 className="text-sm">
+                                {appt.name || "Unknown Patient"}
+                              </h3>
                                 <p className="text-sm text-muted-foreground">
                                   Appointment Scheduled
                                 </p>
@@ -272,29 +260,37 @@ const handleCancel = async (id: number) => {
                 <Card className="p-6">
                   <h2 className="mb-4">Recent Activity</h2>
                   <div className="space-y-3">
-                    {recentActivity.map((activity) => (
-                      <div key={activity.id} className="flex items-start gap-3 pb-3 border-b last:border-0">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            activity.type === 'completed'
-                              ? 'bg-green-100'
-                              : activity.type === 'prescription'
-                                ? 'bg-blue-100'
+                    {activities.map((activity) => {
+                      const time = new Date(activity.time).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+
+                      return (
+                        <div key={activity.id} className="flex items-start gap-3 pb-3 border-b last:border-0">
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              activity.type === 'completed'
+                                ? 'bg-green-100'
+                                : activity.type === 'cancelled'
+                                ? 'bg-red-100'
                                 : 'bg-purple-100'
-                          }`}
-                        >
-                          {activity.type === 'completed' && <CheckCircle className="w-4 h-4 text-green-600" />}
-                          {activity.type === 'prescription' && <FileText className="w-4 h-4 text-blue-600" />}
-                          {activity.type === 'scheduled' && <CalendarIcon className="w-4 h-4 text-purple-600" />}
+                            }`}
+                          >
+                            {activity.type === 'completed' && <CheckCircle className="w-4 h-4 text-green-600" />}
+                            {activity.type === 'cancelled' && <XCircle className="w-4 h-4 text-red-600" />}
+                            {activity.type === 'scheduled' && <CalendarIcon className="w-4 h-4 text-purple-600" />}
+                          </div>
+
+                          <div className="flex-1">
+                            <p className="text-sm">
+                              <span className="font-medium">{activity.patientName}</span> - {activity.action}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{time}</p>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm">
-                            <span className="font-medium">{activity.patient}</span> - {activity.action}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{activity.time}</p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </Card>
               </div>
@@ -320,23 +316,6 @@ const handleCancel = async (id: number) => {
                   >
                     Manage Schedule
                   </Button>
-                </Card>
-
-                <Card className="p-6 bg-gradient-to-br from-blue-50 to-purple-50">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <TrendingUp className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="mb-2 text-sm">Performance This Week</h3>
-                      <p className="text-xs text-muted-foreground mb-3">
-                        You've completed 45 consultations with a 4.8/5.0 average rating.
-                      </p>
-                      <Button variant="link" className="p-0 h-auto text-xs">
-                        View Details
-                      </Button>
-                    </div>
-                  </div>
                 </Card>
               </div>
             </div>
@@ -391,8 +370,14 @@ const handleCancel = async (id: number) => {
                     <User className="w-8 h-8" />
                   </div>
                   <div>
-                    <h3 className="text-sm">Dr. Sita Patel</h3>
-                    <p className="text-xs text-muted-foreground">General Medicine</p>
+                    <h3 className="text-sm font-semibold">
+                      {doctor?.role === "DOCTOR" 
+                        ? `Dr. ${doctor?.name || doctor?.fullName || "User"}` 
+                        : doctor?.name || doctor?.fullName || "User"}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {doctor?.specialization || "General"}
+                    </p>
                   </div>
                 </div>
               </div>

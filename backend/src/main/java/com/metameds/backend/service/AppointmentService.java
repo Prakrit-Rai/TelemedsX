@@ -10,6 +10,7 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
+import com.metameds.backend.dto.ActivityDto;
 import com.metameds.backend.dto.AppointmentResponseDto;
 import com.metameds.backend.model.Appointment;
 import com.metameds.backend.model.DoctorAvailability;
@@ -25,7 +26,17 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final DoctorAvailabilityRepository doctorAvailabilityRepository;
     private final UserRepository userRepository;
-
+    
+    private String mapStatus(String status) {
+    switch (status) {
+        case "BOOKED":
+            return "waiting";
+        case "COMPLETED":
+            return "completed";
+        default:
+            return "in-progress";
+    }
+}
     // ✅ Single, consolidated constructor for Dependency Injection
     public AppointmentService(
         AppointmentRepository appointmentRepository,
@@ -73,23 +84,86 @@ public class AppointmentService {
     public List<Appointment> getPatientAppointments(Long patientId) {
         return appointmentRepository.findByPatientId(patientId);
     }
+    public void startAppointment(Long id) {
+        Appointment appt = appointmentRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Appointment not found"));
+
+        appt.setStatus("IN_PROGRESS"); // ✅ IMPORTANT
+        appointmentRepository.save(appt);
+    }
 
     public List<AppointmentResponseDto> getDoctorAppointments(Long doctorId) {
         return appointmentRepository.findByDoctorId(doctorId)
             .stream()
             .map(a -> {
+                // --- YOUR NEW FINAL FIX LOGIC ---
+                String patientName = userRepository.findById(a.getPatientId())
+                    .map(u -> (u.getFullName() != null && !u.getFullName().isEmpty())
+                        ? u.getFullName()
+                        : "Patient #" + u.getId()
+                    )
+                    .orElse("Patient #" + a.getPatientId());
+
+                // --- STATUS MAPPING ---
+                String statusMapped;
+                switch (a.getStatus()) {
+                    case "BOOKED": statusMapped = "waiting"; break;
+                    case "COMPLETED": statusMapped = "completed"; break;
+                    case "IN_PROGRESS": statusMapped = "in-progress"; break;
+                    default: statusMapped = "waiting";
+                }
+
+                // --- MATCH 10-PARAM CONSTRUCTOR ---
+                return new AppointmentResponseDto(
+                    a.getId(),            // 1
+                    a.getDoctorId(),      // 2
+                    a.getPatientId(),     // 3
+                    patientName,          // 4 (Using your final fix)
+                    a.getNotes() != null ? a.getNotes() : "General consultation", // 5
+                    a.getAppointmentTime().toString(), // 6
+                    "Voice Call",         // 7
+                    statusMapped,         // 8
+                    "medium",             // 9
+                    "0 min"               // 10
+                );
+            })
+            .toList();
+    }
+
+    public List<ActivityDto> getRecentActivity(Long doctorId) {
+        return appointmentRepository.findByDoctorId(doctorId)
+            .stream()
+            .sorted((a, b) -> b.getAppointmentTime().compareTo(a.getAppointmentTime()))
+            .limit(5)
+            .map(a -> {
 
                 String patientName = userRepository.findById(a.getPatientId())
                         .map(User::getFullName)
-                        .orElse("Unknown Patient");
+                        .orElse("Unknown");
 
-                return new AppointmentResponseDto(
+                String action;
+                String type;
+
+                switch (a.getStatus()) {
+                    case "COMPLETED":
+                        action = "Consultation completed";
+                        type = "completed";
+                        break;
+                    case "CANCELLED":
+                        action = "Appointment cancelled";
+                        type = "cancelled";
+                        break;
+                    default:
+                        action = "Appointment scheduled";
+                        type = "scheduled";
+                }
+
+                return new ActivityDto(
                     a.getId(),
-                    a.getDoctorId(),
-                    a.getPatientId(),
                     patientName,
+                    action,
                     a.getAppointmentTime(),
-                    a.getStatus()
+                    type
                 );
             })
             .toList();

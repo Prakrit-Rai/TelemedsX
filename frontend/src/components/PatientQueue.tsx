@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -19,12 +19,11 @@ import {
   CheckCircle,
   AlertCircle,
 } from 'lucide-react';
+import { startAppointment, completeAppointment, getDoctorAppointments } from '../api/appointment';
 
 interface Patient {
   id: number;
   name: string;
-  age: number;
-  gender: string;
   symptoms: string;
   time: string;
   type: 'Voice Call' | 'Text Chat';
@@ -37,68 +36,59 @@ export function PatientQueue() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showPrescription, setShowPrescription] = useState(false);
 
-  const [patients] = useState<Patient[]>([
-    {
-      id: 1,
-      name: 'Ram Sharma',
-      age: 45,
-      gender: 'Male',
-      symptoms: 'Fever, Headache, Body ache',
-      time: '10:00 AM',
-      type: 'Voice Call',
-      status: 'waiting',
-      priority: 'high',
-      waitTime: '5 min',
-    },
-    {
-      id: 2,
-      name: 'Sita Devi',
-      age: 32,
-      gender: 'Female',
-      symptoms: 'Cough, Sore throat',
-      time: '10:30 AM',
-      type: 'Text Chat',
-      status: 'waiting',
-      priority: 'medium',
-      waitTime: '0 min',
-    },
-    {
-      id: 3,
-      name: 'Hari Bahadur',
-      age: 58,
-      gender: 'Male',
-      symptoms: 'Chest pain, Shortness of breath',
-      time: '11:00 AM',
-      type: 'Voice Call',
-      status: 'in-progress',
-      priority: 'high',
-      waitTime: '15 min',
-    },
-    {
-      id: 4,
-      name: 'Maya Gurung',
-      age: 28,
-      gender: 'Female',
-      symptoms: 'Skin rash, Itching',
-      time: '11:30 AM',
-      type: 'Text Chat',
-      status: 'waiting',
-      priority: 'low',
-      waitTime: '0 min',
-    },
-    {
-      id: 5,
-      name: 'Krishna Thapa',
-      age: 35,
-      gender: 'Male',
-      symptoms: 'Stomach pain, Nausea',
-      time: '9:45 AM',
-      type: 'Voice Call',
-      status: 'completed',
-      priority: 'medium',
-      waitTime: '45 min',
-    },
-  ]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const mapStatus = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "booked":
+      case "waiting":
+        return "waiting";
+
+      case "in_progress":
+      case "in-progress":
+        return "in-progress";
+
+      case "completed":
+        return "completed";
+
+      default:
+        return "waiting";
+    }
+  };
+  
+useEffect(() => {
+  const fetchPatients = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!user.id) return;
+      const res = await getDoctorAppointments(user.id);
+
+      const mapped = res.data
+        .filter((a: any) =>
+          new Date(a.appointmentTime).toDateString() === new Date().toDateString()
+        )
+        .map((a: any) => ({
+          id: a.id,
+          // Use name from backend, fallback to ID if string is empty or "Patient #..."
+          name: a.name && !a.name.startsWith("Patient #") ? a.name : `User #${a.patientId}`,
+          symptoms: a.symptoms || "General consultation",
+          time: new Date(a.appointmentTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          type: 'Voice Call',
+          status: mapStatus(a.status),
+          priority: a.priority || 'medium',
+          waitTime: a.waitTime || '0 min',
+        }));
+      setPatients(mapped);
+    } catch (err) {
+      console.error("Queue fetch error", err);
+    }
+  };
+
+  fetchPatients();
+  const interval = setInterval(fetchPatients, 5000);
+
+  // CRITICAL: Return a cleanup function
+  return () => clearInterval(interval); 
+}, []); // Empty dependency array is correct
 
   const filterByStatus = (status: string) => {
     if (status === 'all') return patients;
@@ -117,6 +107,8 @@ export function PatientQueue() {
         return 'bg-gray-100 text-gray-700';
     }
   };
+
+  
 
   return (
     <div className="space-y-6">
@@ -166,9 +158,6 @@ export function PatientQueue() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="text-sm">{patient.name}</h3>
-                          <span className="text-xs text-muted-foreground">
-                            {patient.age}Y, {patient.gender}
-                          </span>
                           <Badge className={`text-xs ${getPriorityColor(patient.priority)}`}>
                             {patient.priority}
                           </Badge>
@@ -194,7 +183,20 @@ export function PatientQueue() {
                     <div className="flex flex-col gap-2">
                       {patient.status === 'waiting' && (
                         <>
-                          <Button size="sm" onClick={() => setSelectedPatient(patient)}>
+                          <Button 
+                            size="sm" 
+                            onClick={async () => {
+                              try {
+                                await startAppointment(patient.id);
+                                // Update local state to move patient from 'waiting' to 'in-progress'
+                                setPatients(prev => 
+                                  prev.map(p => p.id === patient.id ? { ...p, status: 'in-progress' } : p)
+                                );
+                              } catch (error) {
+                                console.error("Failed to start appointment:", error);
+                              }
+                            }}
+                          >
                             {patient.type === 'Voice Call' ? (
                               <>
                                 <Phone className="w-3 h-3 mr-1" />
@@ -214,7 +216,21 @@ export function PatientQueue() {
                       )}
                       {patient.status === 'in-progress' && (
                         <>
-                          <Button size="sm" variant="destructive">
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={async () => {
+                              try {
+                                await completeAppointment(patient.id);
+                                // Update local state to move patient from 'in-progress' to 'completed'
+                                setPatients(prev => 
+                                  prev.map(p => p.id === patient.id ? { ...p, status: 'completed' } : p)
+                                );
+                              } catch (error) {
+                                console.error("Failed to complete appointment:", error);
+                              }
+                            }}
+                          >
                             End Session
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => setShowPrescription(true)}>
