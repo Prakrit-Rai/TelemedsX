@@ -6,6 +6,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -22,22 +23,10 @@ import com.metameds.backend.repository.UserRepository;
 @Service
 public class AppointmentService {
 
-    // ✅ All fields grouped at the top
     private final AppointmentRepository appointmentRepository;
     private final DoctorAvailabilityRepository doctorAvailabilityRepository;
     private final UserRepository userRepository;
-    
-    private String mapStatus(String status) {
-    switch (status) {
-        case "BOOKED":
-            return "waiting";
-        case "COMPLETED":
-            return "completed";
-        default:
-            return "in-progress";
-    }
-}
-    // ✅ Single, consolidated constructor for Dependency Injection
+
     public AppointmentService(
         AppointmentRepository appointmentRepository,
         DoctorAvailabilityRepository doctorAvailabilityRepository,
@@ -50,61 +39,112 @@ public class AppointmentService {
 
     // ------------------ CREATE APPOINTMENT ------------------
     public Appointment createAppointment(Appointment appointment) {
+        System.out.println("🔍 Creating appointment: " + appointment);
+
         boolean exists = appointmentRepository.existsByDoctorIdAndAppointmentTime(
                 appointment.getDoctorId(),
                 appointment.getAppointmentTime()
         );
+
+        System.out.println("🔍 Slot exists? " + exists);
 
         if (exists) {
             throw new RuntimeException("This time slot is already booked");
         }
 
         appointment.setStatus("BOOKED");
-        return appointmentRepository.save(appointment);
+        Appointment saved = appointmentRepository.save(appointment);
+
+        System.out.println("✅ Appointment saved: " + saved.getId());
+        return saved;
     }
 
-    // ------------------ CANCEL APPOINTMENT ------------------
+    // ------------------ CANCEL ------------------
     public void cancelAppointment(Long appointmentId) {
+        System.out.println("🔍 Cancelling appointment ID: " + appointmentId);
+
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new RuntimeException("Appointment not found"));
 
         appointment.setStatus("CANCELLED");
         appointmentRepository.save(appointment);
+
+        System.out.println("✅ Appointment cancelled");
     }
 
     public void completeAppointment(Long id) {
+        System.out.println("🔍 Completing appointment ID: " + id);
+
         Appointment appt = appointmentRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Appointment not found"));
 
         appt.setStatus("COMPLETED");
         appointmentRepository.save(appt);
+
+        System.out.println("✅ Appointment completed");
     }
 
-    // ------------------ FETCH ------------------
-    public List<Appointment> getPatientAppointments(Long patientId) {
-        return appointmentRepository.findByPatientId(patientId);
-    }
     public void startAppointment(Long id) {
+        System.out.println("🔍 Starting appointment ID: " + id);
+
         Appointment appt = appointmentRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Appointment not found"));
 
-        appt.setStatus("IN_PROGRESS"); // ✅ IMPORTANT
+        appt.setStatus("IN_PROGRESS");
         appointmentRepository.save(appt);
+
+        System.out.println("✅ Appointment started");
     }
 
+    // ------------------ PATIENT ------------------
+    public List<Appointment> getPatientAppointments(Long patientId) {
+        System.out.println("🔍 Fetching patient appointments for ID: " + patientId);
+
+        List<Appointment> list = appointmentRepository.findByPatientId(patientId);
+
+        System.out.println("📦 Found appointments: " + list.size());
+        return list;
+    }
+
+    // ------------------ DOCTOR QUEUE ------------------
     public List<AppointmentResponseDto> getDoctorAppointments(Long doctorId) {
-        return appointmentRepository.findByDoctorId(doctorId)
-            .stream()
+
+        System.out.println("🔍 Fetching doctor appointments for ID: " + doctorId);
+
+        LocalDate today = LocalDate.now();
+
+        List<Appointment> appointments =
+            appointmentRepository.findByDoctorIdAndAppointmentTimeBetween(
+                doctorId,
+                today.atStartOfDay(),
+                today.atTime(23, 59)
+            );
+
+        System.out.println("📦 Appointments found: " + appointments.size());
+
+        return appointments.stream()
             .map(a -> {
-                // --- YOUR NEW FINAL FIX LOGIC ---
-                String patientName = userRepository.findById(a.getPatientId())
+
+                System.out.println("➡️ Processing appointment ID: " + a.getId());
+                System.out.println("   Patient ID: " + a.getPatientId());
+
+                Optional<User> userOpt = userRepository.findById(a.getPatientId());
+
+                if (userOpt.isPresent()) {
+                    System.out.println("   ✅ User found: " + userOpt.get().getFullName());
+                } else {
+                    System.out.println("   ❌ User NOT FOUND for ID: " + a.getPatientId());
+                }
+
+                String patientName = userOpt
                     .map(u -> (u.getFullName() != null && !u.getFullName().isEmpty())
                         ? u.getFullName()
                         : "Patient #" + u.getId()
                     )
                     .orElse("Patient #" + a.getPatientId());
 
-                // --- STATUS MAPPING ---
+                System.out.println("   👉 Final Name: " + patientName);
+
                 String statusMapped;
                 switch (a.getStatus()) {
                     case "BOOKED": statusMapped = "waiting"; break;
@@ -113,29 +153,34 @@ public class AppointmentService {
                     default: statusMapped = "waiting";
                 }
 
-                // --- MATCH 10-PARAM CONSTRUCTOR ---
                 return new AppointmentResponseDto(
-                    a.getId(),            // 1
-                    a.getDoctorId(),      // 2
-                    a.getPatientId(),     // 3
-                    patientName,          // 4 (Using your final fix)
-                    a.getNotes() != null ? a.getNotes() : "General consultation", // 5
-                    a.getAppointmentTime().toString(), // 6
-                    "Voice Call",         // 7
-                    statusMapped,         // 8
-                    "medium",             // 9
-                    "0 min"               // 10
+                    a.getId(),
+                    a.getDoctorId(),
+                    a.getPatientId(),
+                    patientName,
+                    a.getNotes() != null ? a.getNotes() : "General consultation",
+                    a.getAppointmentTime().toString(),
+                    "Voice Call",
+                    statusMapped,
+                    "medium",
+                    "0 min"
                 );
             })
             .toList();
     }
 
+    // ------------------ RECENT ACTIVITY ------------------
     public List<ActivityDto> getRecentActivity(Long doctorId) {
+
+        System.out.println("🔍 Fetching recent activity for doctor: " + doctorId);
+
         return appointmentRepository.findByDoctorId(doctorId)
             .stream()
             .sorted((a, b) -> b.getAppointmentTime().compareTo(a.getAppointmentTime()))
             .limit(5)
             .map(a -> {
+
+                System.out.println("➡️ Activity for appointment: " + a.getId());
 
                 String patientName = userRepository.findById(a.getPatientId())
                         .map(User::getFullName)
@@ -172,7 +217,8 @@ public class AppointmentService {
     // ------------------ SLOT GENERATION ------------------
     public List<LocalDateTime> getAvailableSlots(Long doctorId, LocalDate date) {
 
-        // 1. Get BOTH types (Specific Date & Weekly Pattern)
+        System.out.println("🔍 Fetching slots for doctor: " + doctorId + " on " + date);
+
         List<DoctorAvailability> dateSpecific =
                 doctorAvailabilityRepository.findByDoctorIdAndDate(doctorId, date);
 
@@ -182,11 +228,13 @@ public class AppointmentService {
                         date.getDayOfWeek()
                 );
 
+        System.out.println("📅 Date-specific availability: " + dateSpecific.size());
+        System.out.println("📅 Weekly availability: " + weekly.size());
+
         List<DoctorAvailability> availabilityList = new ArrayList<>();
         availabilityList.addAll(dateSpecific);
         availabilityList.addAll(weekly);
 
-        // 2. Get booked appointments for that day
         List<Appointment> bookedAppointments =
                 appointmentRepository.findByDoctorIdAndAppointmentTimeBetween(
                         doctorId,
@@ -194,7 +242,8 @@ public class AppointmentService {
                         date.atTime(23, 59)
                 );
 
-        // Ignore CANCELLED appointments when calculating free slots
+        System.out.println("📦 Booked appointments: " + bookedAppointments.size());
+
         Set<LocalDateTime> bookedTimes = new HashSet<>();
         for (Appointment a : bookedAppointments) {
             if (!"CANCELLED".equals(a.getStatus())) {
@@ -202,36 +251,79 @@ public class AppointmentService {
             }
         }
 
-        // 3. Generate slots with past-time guard
         Set<LocalDateTime> availableSlots = new HashSet<>();
         LocalDateTime now = LocalDateTime.now();
 
         for (DoctorAvailability availability : availabilityList) {
-            if (availability.getIsActive() != null && !availability.getIsActive()) continue;
+
+            System.out.println("➡️ Checking availability block: " + availability.getId());
+
+            if (availability.getIsActive() != null && !availability.getIsActive()) {
+                System.out.println("   ❌ Skipped (inactive)");
+                continue;
+            }
 
             LocalTime start = availability.getStartTime();
             LocalTime end = availability.getEndTime();
-
             int duration = availability.getSlotDuration() != null
                     ? availability.getSlotDuration()
                     : 30;
 
+            System.out.println("   🕒 Start: " + start + " End: " + end);
+
             LocalTime current = start;
 
-            while (!current.plusMinutes(duration).isAfter(end)) {
+            // 🚨 SAFETY VALIDATION (ADD THIS BEFORE LOOP)
+            if (start == null || end == null) {
+                System.out.println("🚨 Start or End time is NULL");
+                return List.of();
+            }
+
+            if (!start.isBefore(end)) {
+                System.out.println("🚨 Invalid time range: start >= end");
+                return List.of();
+            }
+
+            if (duration <= 0) {
+                System.out.println("🚨 Invalid slot duration: " + duration);
+                return List.of();
+            }
+
+            // 🔍 DEBUG
+            System.out.println("START: " + start);
+            System.out.println("END: " + end);
+            System.out.println("DURATION: " + duration);
+
+            // ✅ SAFE LOOP
+            while (true) {
+
+                if (current.isAfter(end) || current.equals(end)) {
+                    break;
+                }
+
                 LocalDateTime slot = LocalDateTime.of(date, current);
 
-                // Only show future slots that aren't already booked
                 if (!bookedTimes.contains(slot) && slot.isAfter(now)) {
+                    System.out.println("✅ Available slot: " + slot);
                     availableSlots.add(slot);
+                } else {
+                    System.out.println("❌ Skipped slot: " + slot);
                 }
-                current = current.plusMinutes(duration);
+
+                LocalTime next = current.plusMinutes(duration);
+
+                // 🚨 EXTRA PROTECTION
+                if (next.equals(current)) {
+                    System.out.println("🚨 Duration not progressing!");
+                    break;
+                }
+
+                current = next;
             }
         }
 
-        // 4. Sort and return
-        return availableSlots.stream()
-                .sorted()
-                .toList();
+        System.out.println("🎯 Final available slots: " + availableSlots.size());
+
+        return availableSlots.stream().sorted().toList();
     }
 }

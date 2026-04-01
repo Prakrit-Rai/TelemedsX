@@ -62,17 +62,23 @@ useEffect(() => {
       if (!user.id) return;
       const res = await getDoctorAppointments(user.id);
 
+      const today = new Date().toDateString();
+
       const mapped = res.data
-        .filter((a: any) =>
-          new Date(a.appointmentTime).toDateString() === new Date().toDateString()
-        )
+        .filter((a: any) => {
+          return new Date(a.appointmentTime).toDateString() === today;
+        })
         .map((a: any) => ({
           id: a.id,
-          // Use name from backend, fallback to ID if string is empty or "Patient #..."
-          name: a.name && !a.name.startsWith("Patient #") ? a.name : `User #${a.patientId}`,
-          symptoms: a.symptoms || "General consultation",
-          time: new Date(a.appointmentTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: 'Voice Call',
+          name: a.name || `Patient #${a.patientId}`,
+          symptoms: a.notes || "General consultation",
+
+          time: new Date(a.appointmentTime).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+
+          type: a.type || 'Voice Call',
           status: mapStatus(a.status),
           priority: a.priority || 'medium',
           waitTime: a.waitTime || '0 min',
@@ -107,8 +113,6 @@ useEffect(() => {
         return 'bg-gray-100 text-gray-700';
     }
   };
-
-  
 
   return (
     <div className="space-y-6">
@@ -188,6 +192,7 @@ useEffect(() => {
                             onClick={async () => {
                               try {
                                 await startAppointment(patient.id);
+                                localStorage.setItem("activePatient", JSON.stringify(patient));
                                 // Update local state to move patient from 'waiting' to 'in-progress'
                                 setPatients(prev => 
                                   prev.map(p => p.id === patient.id ? { ...p, status: 'in-progress' } : p)

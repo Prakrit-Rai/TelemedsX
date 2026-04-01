@@ -77,38 +77,34 @@ export function PatientDashboard({ onNavigate, onLogout }: PatientDashboardProps
   };
 
   // --- 2. DATA LOADING ---
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
+useEffect(() => {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-    const loadData = async () => {
-      try {
-        const [appointmentsRes, doctorsRes] = await Promise.all([
-          getPatientAppointments(user.id),
-          getDoctors()
-        ]);
+  const loadData = async () => {
+    try {
+      const [appointmentsRes, doctorsRes] = await Promise.all([
+        getPatientAppointments(user.id),
+        getDoctors()
+      ]);
 
-        setUpcomingAppointments(appointmentsRes.data);
-        setDoctors(doctorsRes.data);
-      } catch (err) {
-        console.error("Auto-refresh error", err);
-      }
-    };
+      setUpcomingAppointments(appointmentsRes.data);
+      setDoctors(doctorsRes.data);
+    } catch (err) {
+      console.error("Auto-refresh error", err);
+    }
+  };
 
-    // Initial load
-    loadData();
+  loadData();
 
-    //  POLLING every 5 seconds
-    const interval = setInterval(() => {
-    // Optional safety: don’t refresh during booking
-    if (!bookingSlot) {
+  const interval = setInterval(() => {
+    if (!bookingSlot && !selectedDoctor && !selectedDate) {
       loadData();
     }
   }, 5000);
 
-    // Cleanup
-    return () => clearInterval(interval);
+  return () => clearInterval(interval);
 
-  }, []);
+}, [bookingSlot, selectedDoctor, selectedDate]);
 
   // --- 3. BOOK APPOINTMENT HANDLER ---
   const handleBookAppointment = async (doctorId: number) => {
@@ -297,44 +293,38 @@ export function PatientDashboard({ onNavigate, onLogout }: PatientDashboardProps
                     <input
                       type="date"
                       className="border p-2 rounded mb-3 w-full max-w-xs bg-white"
-                      value={selectedDate}
                       onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
                         const date = e.target.value;
+
                         setSelectedDate(date);
                         setSelectedSlot("");
 
-                        if (!date) return;
+                        if (!date || !selectedDoctor) return;
+
+                        if (loadingSlots) return; // 🚨 prevent spam
 
                         try {
                           setLoadingSlots(true);
 
+                          console.log("Fetching slots for:", selectedDoctor.id, date);
+
                           const res = await getAvailableSlots(selectedDoctor.id, date);
+
+                          const slotsData = Array.isArray(res.data) ? res.data : [];
 
                           const now = new Date();
 
-                          const filteredSlots = res.data
+                          const filteredSlots = slotsData
                             .map((slotStr: string) => new Date(slotStr))
-                            .filter((slotDate: Date) => {
-                              const selectedDay = new Date(date);
-
-                              const isSameDay =
-                                slotDate.getFullYear() === selectedDay.getFullYear() &&
-                                slotDate.getMonth() === selectedDay.getMonth() &&
-                                slotDate.getDate() === selectedDay.getDate();
-
-                              if (isSameDay) {
-                                return slotDate > now;
-                              }
-                              return true;
-                            })
+                            .filter((slotDate: Date) => slotDate > now)
                             .sort((a: Date, b: Date) => a.getTime() - b.getTime())
-                            .map((d: Date) => {
-                              return d.getFullYear() + "-" +
-                                String(d.getMonth() + 1).padStart(2, "0") + "-" +
-                                String(d.getDate()).padStart(2, "0") + "T" +
-                                String(d.getHours()).padStart(2, "0") + ":" +
-                                String(d.getMinutes()).padStart(2, "0") + ":00";
-                            });
+                            .map((d: Date) =>
+                              d.getFullYear() + "-" +
+                              String(d.getMonth() + 1).padStart(2, "0") + "-" +
+                              String(d.getDate()).padStart(2, "0") + "T" +
+                              String(d.getHours()).padStart(2, "0") + ":" +
+                              String(d.getMinutes()).padStart(2, "0") + ":00"
+                            );
 
                           setAvailableSlots(filteredSlots);
 
