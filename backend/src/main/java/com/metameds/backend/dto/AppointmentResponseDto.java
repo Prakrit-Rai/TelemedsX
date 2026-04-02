@@ -12,7 +12,6 @@ public class AppointmentResponseDto {
     private String priority;
     private String waitTime;
 
-    // This constructor MUST have exactly 10 parameters in this order:
     public AppointmentResponseDto(
             Long id, 
             Long doctorId, 
@@ -37,7 +36,12 @@ public class AppointmentResponseDto {
         this.waitTime = waitTime;
     }
 
-    // Getters...
+    // ✅ NEW: Backward compatibility
+    public String getFullName() {
+        return name;
+    }
+
+    // Getters
     public Long getId() { return id; }
     public Long getDoctorId() { return doctorId; }
     public Long getPatientId() { return patientId; }

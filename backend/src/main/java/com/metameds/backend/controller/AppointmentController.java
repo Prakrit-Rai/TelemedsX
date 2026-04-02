@@ -46,7 +46,6 @@ public List<AppointmentResponseDto> getDoctorAppointments(@PathVariable Long doc
     return appointmentService.getDoctorAppointments(doctorId);
 }
 
-    // 🔥 NEW ENDPOINT
     @GetMapping("/slots")
     public List<LocalDateTime> getAvailableSlots(
             @RequestParam Long doctorId,

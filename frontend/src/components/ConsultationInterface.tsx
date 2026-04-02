@@ -15,6 +15,11 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { Avatar } from './ui/avatar';
+import SockJS from "sockjs-client";
+import { Client } from "@stomp/stompjs"
+import { getMessages } from "../api/chat";
+import { useRef } from "react";
+
 
 type CallStatus = 'idle' | 'calling' | 'active';
 type ConsultationTab = 'chat' | 'voice';
@@ -35,6 +40,9 @@ export function ConsultationInterface() {
 
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
   const [isMuted, setIsMuted] = useState(false);
+  const stompClientRef = useRef<Client | null>(null);
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isDoctor = user.role === "DOCTOR";
 
   // ✅ Load active patient
   useEffect(() => {
@@ -51,22 +59,115 @@ export function ConsultationInterface() {
     }
   }, [activePatient]);
 
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) return;
+const handleSendMessage = () => {
+  const client = stompClientRef.current;
 
-    const newMessage: Message = {
+  if (!messageInput.trim() || !client || !client.connected || !activePatient) return;
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+  const chatMessage = {
+    appointmentId: activePatient.id,
+    senderId: user.id,
+    senderRole: isDoctor ? "DOCTOR" : "PATIENT",
+    content: messageInput,
+  };
+
+  // ✅ ADD THIS (IMPORTANT)
+  setMessages((prev) => [
+    ...prev,
+    {
       id: Date.now(),
-      sender: 'doctor',
+      sender: isDoctor ? "doctor" : "patient",
       text: messageInput,
       timestamp: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
+        hour: "2-digit",
+        minute: "2-digit",
       }),
-    };
+    },
+  ]);
 
-    setMessages((prev) => [...prev, newMessage]);
-    setMessageInput('');
+  client.publish({
+    destination: "/app/chat.send",
+    body: JSON.stringify(chatMessage),
+  });
+
+  setMessageInput('');
+};
+
+useEffect(() => {
+  if (!activePatient) return;
+
+  const socket = new SockJS("http://localhost:8081/ws");
+
+  const client = new Client({
+    webSocketFactory: () => socket,
+    reconnectDelay: 5000,
+
+  onConnect: () => {
+    console.log("✅ Connected to WebSocket");
+    console.log("🔥 STOMP CONNECTED SUCCESSFULLY");
+    stompClientRef.current = client; // ✅ store instantly
+
+    client.subscribe(`/topic/chat/${activePatient.id}`, (message) => {
+      const received = JSON.parse(message.body);
+
+      console.log("📩 MESSAGE RECEIVED:", received);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: received.id,
+          sender: received.senderRole === "DOCTOR" ? "doctor" : "patient",
+          text: received.content,
+          timestamp: new Date(received.timestamp).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      ]);
+    });
+  },
+
+    onStompError: (frame) => {
+      console.error("❌ STOMP error:", frame);
+    },
+  });
+
+  client.activate();
+
+  return () => {
+    if (client) {
+      client.deactivate();
+    }
   };
+}, [activePatient]);
+
+useEffect(() => {
+  const loadMessages = async () => {
+    if (!activePatient) return;
+
+    try {
+      const res = await getMessages(activePatient.id);
+
+      const mapped = res.data.map((msg: any) => ({
+        id: msg.id,
+        sender: msg.senderRole === "DOCTOR" ? "doctor" : "patient",
+        text: msg.content,
+        timestamp: new Date(msg.timestamp).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      }));
+
+      setMessages(mapped);
+    } catch (err) {
+      console.error("Failed to load messages", err);
+    }
+  };
+
+  loadMessages();
+}, [activePatient]);
 
   const handleStartCall = () => {
     setCallStatus('calling');
@@ -121,7 +222,7 @@ export function ConsultationInterface() {
                     {activePatient?.name?.charAt(0) || "P"}
                   </Avatar>
                   <div>
-                    <h3>{activePatient?.name}</h3>
+                    <h3>{isDoctor ? activePatient?.patientName || activePatient?.name: activePatient?.doctorName || activePatient?.name}</h3>
                     <p className="text-sm text-muted-foreground">
                       {activePatient?.symptoms || "Consultation"}
                     </p>
@@ -153,7 +254,7 @@ export function ConsultationInterface() {
                 {/* CHAT */}
                 <TabsContent value="chat" className="flex-1 flex flex-col">
 
-                  <ScrollArea className="flex-1 p-4">
+                  <ScrollArea className="flex-1 p-4 h-full overflow-y-auto">
                     {messages.length === 0 ? (
                       <p className="text-center text-muted-foreground">
                         No messages yet
@@ -163,15 +264,17 @@ export function ConsultationInterface() {
                         {messages.map((msg) => (
                           <div
                             key={msg.id}
-                            className={`flex ${
-                              msg.sender === 'doctor'
+                            className={`flex w-full ${
+                              (msg.sender === "doctor" && isDoctor) ||
+                              (msg.sender === "patient" && !isDoctor)
                                 ? 'justify-end'
                                 : 'justify-start'
                             }`}
                           >
                             <div
-                              className={`p-3 rounded-lg text-sm ${
-                                msg.sender === 'doctor'
+                              className={`p-3 rounded-lg text-sm max-w-[70%] break-words ${
+                                (msg.sender === "doctor" && isDoctor) ||
+                                (msg.sender === "patient" && !isDoctor)
                                   ? 'bg-blue-600 text-white'
                                   : 'bg-gray-100'
                               }`}
@@ -193,7 +296,12 @@ export function ConsultationInterface() {
                       onChange={(e) => setMessageInput(e.target.value)}
                       placeholder="Type message..."
                     />
-                    <Button onClick={handleSendMessage}>
+                    <Button 
+                      onClick={() => {
+                        console.log("🔥 BUTTON CLICKED");
+                        handleSendMessage();
+                      }}
+                    >
                       <Send className="w-4 h-4" />
                     </Button>
                   </div>

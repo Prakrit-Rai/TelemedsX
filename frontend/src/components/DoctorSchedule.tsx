@@ -38,7 +38,7 @@ export function DoctorSchedule() {
   // 🔥 NEW (Recurring)
   const [isRecurring, setIsRecurring] = useState(false);
   const [selectedDay, setSelectedDay] = useState("");
-  const [activities, setActivities] = useState<any[]>([]);
+
   // --- LOAD DATA ---
   const loadData = async () => {
     try {
