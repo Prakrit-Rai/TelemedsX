@@ -70,7 +70,14 @@ useEffect(() => {
         })
         .map((a: any) => ({
           id: a.id,
-          name: a.name || `Patient #${a.patientId}`,
+
+          
+          patientName: a.patientName || a.name || `Patient #${a.patientId}`,
+          doctorName: a.doctorName || a.doctor?.name || user.name || "Doctor",
+
+          // optional fallback for old code
+          name: a.name,
+
           symptoms: a.notes || "General consultation",
 
           time: new Date(a.appointmentTime).toLocaleTimeString([], {
@@ -193,6 +200,7 @@ useEffect(() => {
                               try {
                                 await startAppointment(patient.id);
                                 localStorage.setItem("activePatient", JSON.stringify(patient));
+                                
                                 // Update local state to move patient from 'waiting' to 'in-progress'
                                 setPatients(prev => 
                                   prev.map(p => p.id === patient.id ? { ...p, status: 'in-progress' } : p)
