@@ -10,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Bell, Plus, Clock, Pill, Calendar, Trash2, Edit, CheckCircle } from 'lucide-react';
 import {  useEffect } from 'react';
 import { getReminders, createReminder, deleteReminder as apiDelete, toggleReminder as apiToggle } from '../api/reminder';
+import SockJS from "sockjs-client";
+import { Client } from "@stomp/stompjs";
+
 interface Reminder {
   id: number;
   title: string;
@@ -113,6 +116,32 @@ useEffect(() => {
       setReminders(fixed);
     });
   }
+}, [userId]);
+
+useEffect(() => {
+  if (!userId) return;
+
+  const socket = new SockJS("http://localhost:8081/ws");
+
+  const stompClient = new Client({
+    webSocketFactory: () => socket,
+
+    onConnect: () => {
+      console.log("Connected");
+
+      stompClient.subscribe(`/topic/notifications/${userId}`, (msg) => {
+        const message = msg.body;
+        alert(message);
+      });
+    },
+  });
+
+  stompClient.activate();
+
+ 
+  return () => {
+    stompClient.deactivate(); 
+  };
 }, [userId]);
 
   const [formData, setFormData] = useState({
