@@ -8,7 +8,8 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Bell, Plus, Clock, Pill, Calendar, Trash2, Edit, CheckCircle } from 'lucide-react';
-
+import {  useEffect } from 'react';
+import { getReminders, createReminder, deleteReminder as apiDelete, toggleReminder as apiToggle } from '../api/reminder';
 interface Reminder {
   id: number;
   title: string;
@@ -22,59 +23,55 @@ interface Reminder {
 
 export function PatientReminders() {
   const [showAddReminder, setShowAddReminder] = useState(false);
-  const [reminders, setReminders] = useState<Reminder[]>([
-    {
-      id: 1,
-      title: 'Take Paracetamol',
-      type: 'medication',
-      time: '9:00 AM',
-      frequency: 'Every 6 hours',
-      isActive: true,
-      nextReminder: 'Today at 9:00 AM',
-      details: '500mg after meals',
-    },
-    {
-      id: 2,
-      title: 'Blood Pressure Check',
-      type: 'checkup',
-      time: '8:00 AM',
-      frequency: 'Daily',
-      isActive: true,
-      nextReminder: 'Tomorrow at 8:00 AM',
-      details: 'Record and track daily readings',
-    },
-    {
-      id: 3,
-      title: 'Dr. Sita Patel Consultation',
-      type: 'appointment',
-      time: '10:00 AM',
-      frequency: 'Jan 15, 2026',
-      isActive: true,
-      nextReminder: 'Jan 15 at 10:00 AM',
-      details: 'Follow-up consultation',
-    },
-    {
-      id: 4,
-      title: 'Take Amoxicillin',
-      type: 'medication',
-      time: '8:00 AM',
-      frequency: 'Twice daily',
-      isActive: false,
-      nextReminder: 'Completed',
-      details: '250mg with water',
-    },
-  ]);
-
-  const toggleReminder = (id: number) => {
-    setReminders(
-      reminders.map((reminder) =>
-        reminder.id === id ? { ...reminder, isActive: !reminder.isActive } : reminder
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = user?.id;
+  const toggleReminder = async (id: number) => {
+    // Instant UI update
+    setReminders(prev =>
+      prev.map(r =>
+        r.id === id ? { ...r, isActive: !r.isActive } : r
       )
     );
+
+    try {
+      await apiToggle(id);
+
+      // Sync with backend (safe)
+      const res = await getReminders(userId);
+
+      const fixed = res.data.map((r: any) => ({
+        ...r,
+        isActive: r.isActive ?? r.active ?? false
+      }));
+
+      setReminders(fixed);
+
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const deleteReminder = (id: number) => {
-    setReminders(reminders.filter((reminder) => reminder.id !== id));
+  const deleteReminder = async (id: number) => {
+    
+    setReminders(prev => prev.filter(r => r.id !== id));
+
+    try {
+      await apiDelete(id);
+
+      
+      const res = await getReminders(userId);
+
+      const fixed = res.data.map((r: any) => ({
+        ...r,
+        isActive: r.isActive ?? r.active ?? false
+      }));
+
+      setReminders(fixed);
+
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const getTypeIcon = (type: string) => {
@@ -103,9 +100,73 @@ export function PatientReminders() {
     }
   };
 
-  const activeReminders = reminders.filter((r) => r.isActive);
-  const inactiveReminders = reminders.filter((r) => !r.isActive);
+const activeReminders = reminders.filter((r) => r.isActive === true);
+const inactiveReminders = reminders.filter((r) => r.isActive !== true);
+useEffect(() => {
+  if (userId) {
+    getReminders(userId).then(res => {
+      const fixed = res.data.map((r: any) => ({
+        ...r,
+        isActive: r.isActive ?? r.active 
+      }));
 
+      setReminders(fixed);
+    });
+  }
+}, [userId]);
+
+  const [formData, setFormData] = useState({
+  title: '',
+  type: 'medication',
+  details: '',
+  time: '',
+  frequency: 'daily'
+  });
+
+  const handleCreateReminder = async () => {
+  if (!formData.title || !formData.time) {
+    alert("Please fill required fields");
+    return;
+  }
+
+  const payload = {
+    userId,
+    title: formData.title,
+    type: formData.type,
+    details: formData.details,
+    time: formData.time,
+    frequency: formData.frequency,
+    isActive: true
+  };
+
+  try {
+    await createReminder(payload);
+
+    const res = await getReminders(userId);
+
+    const fixed = res.data.map((r: any) => ({
+      ...r,
+      isActive: r.isActive ?? r.active ?? false
+    }));
+
+    setReminders(fixed);
+
+    setShowAddReminder(false);
+
+    // reset form
+    setFormData({
+      title: '',
+      type: 'medication',
+      details: '',
+      time: '',
+      frequency: 'daily'
+    });
+
+  } catch (err) {
+    console.error(err);
+    alert("Failed to create reminder");
+  }
+};
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -127,7 +188,12 @@ export function PatientReminders() {
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label>Reminder Type</Label>
-                <Select defaultValue="medication">
+                <Select
+                    value={formData.type}
+                    onValueChange={(value: string) =>
+                      setFormData({ ...formData, type: value as any })
+                    }
+                  >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -141,22 +207,45 @@ export function PatientReminders() {
 
               <div className="space-y-2">
                 <Label>Title</Label>
-                <Input placeholder="e.g., Take Paracetamol" />
+                <Input
+                  placeholder="e.g., Take Paracetamol"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                />
               </div>
 
               <div className="space-y-2">
                 <Label>Details</Label>
-                <Input placeholder="e.g., 500mg after breakfast" />
+                <Input
+                  placeholder="e.g., 500mg after breakfast"
+                  value={formData.details}
+                  onChange={(e) =>
+                    setFormData({ ...formData, details: e.target.value })
+                  }
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Time</Label>
-                  <Input type="time" />
+                  <Input
+                    type="time"
+                    value={formData.time}
+                    onChange={(e) =>
+                      setFormData({ ...formData, time: e.target.value })
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Frequency</Label>
-                  <Select defaultValue="daily">
+                  <Select
+                      value={formData.frequency}
+                      onValueChange={(value: string) =>
+                        setFormData({ ...formData, frequency: value })
+                      }
+                    >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -172,7 +261,7 @@ export function PatientReminders() {
                 </div>
               </div>
 
-              <Button className="w-full" onClick={() => setShowAddReminder(false)}>
+              <Button className="w-full" onClick={handleCreateReminder}>
                 Create Reminder
               </Button>
             </div>
@@ -222,7 +311,6 @@ export function PatientReminders() {
           </div>
         </Card>
       </div>
-
       {/* Active Reminders */}
       <div>
         <h3 className="mb-4">Active Reminders</h3>
