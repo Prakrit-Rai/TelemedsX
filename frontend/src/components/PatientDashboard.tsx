@@ -22,7 +22,8 @@ import { ConsultationInterface } from './ConsultationInterface';
 import { PharmacyLocator } from './PharmacyLocator';
 import { MedicationSafety } from './MedicationSafety';
 import { PatientReminders } from './PatientReminders';
-
+import SockJS from "sockjs-client";
+import { Client } from "@stomp/stompjs";
 // ✅ API Imports
 import { getPatientAppointments, bookAppointment, getAvailableSlots, cancelAppointment } from '../api/appointment';
 import { getDoctors } from '../api/doctor';
@@ -67,8 +68,9 @@ export function PatientDashboard({ onNavigate, onLogout }: PatientDashboardProps
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [bookingSlot, setBookingSlot] = useState<string | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
-
-
+  const [notifications, setNotifications] = useState<string[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0); 
   // --- 1. HELPER FUNCTION ---
   const getDoctorDetails = (doctorId: number) => {
     const doc = doctors.find((d: any) => d.id === doctorId);
@@ -179,6 +181,41 @@ useEffect(() => {
     alert("Failed to cancel appointment");
   }
 };
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (!user?.id) return;
+
+    const socket = new SockJS("http://localhost:8081/ws");
+
+    const stompClient = new Client({
+      webSocketFactory: () => socket,
+
+      onConnect: () => {
+        console.log("Connected to notifications");
+
+        stompClient.subscribe(`/topic/notifications/${user.id}`, (msg) => {
+          const message = msg.body;
+
+          console.log("NEW NOTIFICATION:", message); // 🔍 debug
+
+          setNotifications(prev => [message, ...prev]);
+
+          setUnreadCount(prev => {
+            console.log("Increment unread:", prev + 1); // 🔍 debug
+            return prev + 1;
+          });
+        });
+      },
+    });
+
+    stompClient.activate();
+
+    
+    return () => {
+      stompClient.deactivate(); 
+    };
+  }, []);
+
   const renderContent = () => {
     switch (currentView) {
       case 'symptom-checker':
@@ -454,10 +491,41 @@ useEffect(() => {
               <span className="font-bold text-lg tracking-tight">TelePharm Nepal</span>
             </div>
             <div className="flex items-center gap-2 md:gap-4">
-              <Button variant="ghost" size="icon" className="relative" onClick={() => setCurrentView('reminders')}>
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
-              </Button>
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setShowNotifications(!showNotifications);
+                    setUnreadCount(0); 
+                  }}
+                  className="relative"
+                >
+                  <Bell className="w-5 h-5" />
+
+                  {unreadCount > 0 && (
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+                  )}
+                </Button>
+
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white border rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+                    <div className="p-3 border-b font-semibold">Notifications</div>
+
+                    {notifications.length > 0 ? (
+                      notifications.map((n, i) => (
+                        <div key={i} className="p-3 border-b text-sm hover:bg-gray-50">
+                          {n}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-3 text-sm text-muted-foreground">
+                        No notifications
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <Button variant="ghost" onClick={onLogout} className="flex items-center gap-2 text-gray-600 hover:text-red-600">
                 <LogOut className="w-4 h-4" />
                 <span className="hidden md:inline">Logout</span>

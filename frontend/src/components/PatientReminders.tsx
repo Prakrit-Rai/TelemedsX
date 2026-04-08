@@ -29,6 +29,7 @@ export function PatientReminders() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userId = user?.id;
+  
   const toggleReminder = async (id: number) => {
     // Instant UI update
     setReminders(prev =>
@@ -116,32 +117,6 @@ useEffect(() => {
       setReminders(fixed);
     });
   }
-}, [userId]);
-
-useEffect(() => {
-  if (!userId) return;
-
-  const socket = new SockJS("http://localhost:8081/ws");
-
-  const stompClient = new Client({
-    webSocketFactory: () => socket,
-
-    onConnect: () => {
-      console.log("Connected");
-
-      stompClient.subscribe(`/topic/notifications/${userId}`, (msg) => {
-        const message = msg.body;
-        alert(message);
-      });
-    },
-  });
-
-  stompClient.activate();
-
- 
-  return () => {
-    stompClient.deactivate(); 
-  };
 }, [userId]);
 
   const [formData, setFormData] = useState({
@@ -317,7 +292,12 @@ useEffect(() => {
             <div>
               <p className="text-sm text-muted-foreground">Today's Reminders</p>
               <h2 className="mt-2">
-                {reminders.filter((r) => r.isActive && r.nextReminder.includes('Today')).length}
+                {
+                  reminders.filter((r) =>
+                    r.isActive &&
+                    (r.nextReminder || "").includes("Today")
+                  ).length
+                }
               </h2>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
