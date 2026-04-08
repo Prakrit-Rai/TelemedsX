@@ -112,7 +112,11 @@
         setLocation(JSON.parse(savedLocation));
       }
     }, []);
-    
+    useEffect(() => {
+      if (location) {
+        fetchNearbyPharmacies(location);
+      }
+    }, [location]);
     const handleNearMe = () => {
       if (!navigator.geolocation) {
         alert("Geolocation not supported");
@@ -129,11 +133,7 @@
           };
 
           setLocation(coords);
-          localStorage.setItem("location", JSON.stringify(coords));
-           
-          setSearchQuery("");         
-
-          fetchNearbyPharmacies(coords);
+          localStorage.setItem("location", JSON.stringify(coords));           
         },
         (err) => {
           console.error(err);
@@ -144,10 +144,15 @@
     };
 
   const filteredPharmacies = pharmacies.filter((pharmacy) => {
+    if (!pharmacy.name) return false;
+
+    if (searchQuery.trim() === "") return true;
+
+    const query = searchQuery.toLowerCase();
+
     return (
-      searchQuery === '' ||
-      pharmacy.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pharmacy.address.toLowerCase().includes(searchQuery.toLowerCase())
+      pharmacy.name.toLowerCase().includes(query) ||
+      pharmacy.address.toLowerCase().includes(query)
     );
   });
 
@@ -171,7 +176,7 @@
               />
             </div>
             <div className="flex justify-end">
-              <Button variant="outline" onClick={handleNearMe}>
+              <Button variant="outline" onClick={handleNearMe}disabled={loadingLocation}>
                 <Navigation className="w-4 h-4 mr-2" />
                 {loadingLocation ? "Finding..." : "Near Me"}
               </Button>
@@ -179,16 +184,16 @@
           </div>
         </Card>
 
-        {/* Results Count */}
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            {location
+          <p>
+            {loadingLocation
+              ? "Searching nearby pharmacies..."
+              : location
               ? `Found ${filteredPharmacies.length} pharmacies near you`
               : `Found ${filteredPharmacies.length} pharmacies`}
           </p>
         </div>
 
-        {/* Pharmacy List */}
         <div className="grid md:grid-cols-2 gap-4">
           {filteredPharmacies.map((pharmacy) => (
             <Card key={`${pharmacy.id}-${pharmacy.name}`} className="p-6 hover:shadow-lg transition-shadow">
