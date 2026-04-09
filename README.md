@@ -1,7 +1,7 @@
 AI-Assisted Telepharmacy & Remote Healthcare System
 Overview
 
-MetaMeds is an AI-assisted telehealth and telepharmacy platform designed to improve healthcare accessibility in Nepal, especially in remote areas.
+TeleMeds is an AI-assisted telehealth and telepharmacy platform designed to improve healthcare accessibility in Nepal, especially in remote areas.
 
 The system integrates:
 

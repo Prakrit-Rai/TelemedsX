@@ -30,7 +30,7 @@ export function SymptomChecker({ onStartConsultation }: SymptomCheckerProps) {
   const [duration, setDuration] = useState('');
   const [severity, setSeverity] = useState('');
   const [additionalSymptoms, setAdditionalSymptoms] = useState<string[]>([]);
-
+  const [result, setResult] = useState<any>(null);
   const commonSymptoms = [
     'Fever',
     'Headache',
@@ -44,12 +44,32 @@ export function SymptomChecker({ onStartConsultation }: SymptomCheckerProps) {
     'Chest pain',
   ];
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     setCurrentStep('analyzing');
-    // Simulate AI analysis
-    setTimeout(() => {
+
+    try {
+      const res = await fetch('http://localhost:8081/api/symptoms/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          symptoms,
+          duration,
+          severity,
+          additionalSymptoms,
+        }),
+      });
+
+      const data = await res.json();
+      setResult(data);
+
       setCurrentStep('results');
-    }, 2000);
+    } catch (error) {
+      console.error(error);
+      alert('Error analyzing symptoms');
+      setCurrentStep('input');
+    }
   };
 
   const toggleSymptom = (symptom: string) => {
@@ -68,124 +88,93 @@ export function SymptomChecker({ onStartConsultation }: SymptomCheckerProps) {
     );
   }
 
-  if (currentStep === 'results') {
+  if (currentStep === 'results' && result) {
     return (
       <div className="space-y-6">
+
         <div>
           <h2 className="mb-2">Symptom Analysis Results</h2>
           <p className="text-muted-foreground">
-            Based on your symptoms, here's what our AI assessment suggests
+            Based on your symptoms, here's what our AI suggests
           </p>
         </div>
 
-        {/* Severity Alert */}
+        {/* Severity */}
         <Alert className="border-orange-200 bg-orange-50">
           <AlertCircle className="h-4 w-4 text-orange-600" />
           <AlertDescription className="text-orange-900">
-            <strong>Moderate Severity:</strong> Your symptoms suggest you should consult with a doctor soon.
+            <strong>{result?.severity?.toUpperCase() || 'UNKNOWN'} Severity:</strong>{" "}
+            {result.doctorNeeded
+              ? "Consult a doctor soon."
+              : "Monitor symptoms and rest."} 
           </AlertDescription>
         </Alert>
 
-        {/* Possible Conditions */}
+        {/* Conditions */}
         <Card className="p-6">
           <h3 className="mb-4">Possible Conditions</h3>
-          <div className="space-y-4">
-            <div className="flex items-start gap-4 p-4 bg-blue-50 rounded-lg">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <ThermometerSun className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-2">
-                  <h4>Common Cold or Flu</h4>
-                  <Badge>85% Match</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Your symptoms align with common viral infections. Rest and hydration are important.
-                </p>
-              </div>
-            </div>
 
-            <div className="flex items-start gap-4 p-4 bg-purple-50 rounded-lg">
-              <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Activity className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-2">
-                  <h4>Seasonal Allergies</h4>
-                  <Badge variant="outline">45% Match</Badge>
+          <div className="space-y-4">
+            {result.conditions?.map((c: any, index: number) => (
+              <div
+                key={index}
+                className="flex items-start gap-4 p-4 bg-blue-50 rounded-lg"
+              >
+                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <Activity className="w-5 h-5 text-white" />
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Some symptoms could indicate allergic reactions common in Nepal's climate.
-                </p>
+
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4>{c.name}</h4>
+                    <Badge>{c.probability}% Match</Badge>
+                  </div>
+
+                  <p className="text-sm text-muted-foreground">
+                    {c.reason || "AI-based possible condition (not a diagnosis)"}
+                  </p>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         </Card>
 
-        {/* AI Recommendations */}
+        {/* Recommendations */}
         <Card className="p-6">
           <h3 className="mb-4">AI Recommendations</h3>
+
           <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm">Get plenty of rest and stay hydrated</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm">Monitor your temperature regularly</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm">Consider over-the-counter pain relievers like Paracetamol</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm">Consult a doctor if symptoms worsen or persist beyond 3 days</p>
-            </div>
+            {result.recommendations?.map((rec: string, index: number) => (
+              <div key={index} className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                <p className="text-sm">{rec}</p>
+              </div>
+            ))}
           </div>
         </Card>
 
-        {/* Temporary Safe Medications */}
-        <Card className="p-6">
-          <h3 className="mb-4">Suggested Safe Medications (Temporary Relief)</h3>
-          <Alert className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              These are general suggestions. Please consult with a doctor before taking any medication.
-            </AlertDescription>
-          </Alert>
-          <div className="space-y-3">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm">Paracetamol 500mg</h4>
-                <Badge variant="secondary">For fever/pain</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">Dosage: 1-2 tablets every 6 hours (max 4g/day)</p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm">Cetirizine 10mg</h4>
-                <Badge variant="secondary">For allergies</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">Dosage: 1 tablet once daily</p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Next Steps */}
+        {/* Next Step */}
         <Card className="p-6 bg-gradient-to-r from-blue-50 to-green-50">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+
+            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
               <Brain className="w-6 h-6 text-white" />
             </div>
+
             <div className="flex-1">
-              <h3 className="mb-2">Ready to Speak with a Doctor?</h3>
+              <h3 className="mb-2">Next Step</h3>
+
               <p className="text-muted-foreground mb-4">
-                For a proper diagnosis and personalized treatment plan, we recommend consulting with a
-                licensed doctor.
+                {result.doctorNeeded
+                  ? "We recommend consulting a doctor for proper diagnosis."
+                  : "Monitor your condition. Consult doctor if symptoms persist."}
               </p>
+
               <div className="flex gap-3 flex-wrap">
-                <Button onClick={onStartConsultation}>Book Consultation Now</Button>
+                <Button onClick={onStartConsultation}>
+                  Book Consultation
+                </Button>
+
                 <Button variant="outline" onClick={() => setCurrentStep('input')}>
                   Check Again
                 </Button>
@@ -193,6 +182,7 @@ export function SymptomChecker({ onStartConsultation }: SymptomCheckerProps) {
             </div>
           </div>
         </Card>
+
       </div>
     );
   }

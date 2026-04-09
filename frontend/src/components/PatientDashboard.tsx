@@ -7,7 +7,6 @@ import {
   Stethoscope,
   MapPin,
   Bell,
-  Pill,
   Calendar,
   MessageSquare,
   User,
@@ -20,7 +19,6 @@ import {
 import { SymptomChecker } from './SymptomChecker';
 import { ConsultationInterface } from './ConsultationInterface';
 import { PharmacyLocator } from './PharmacyLocator';
-import { MedicationSafety } from './MedicationSafety';
 import { PatientReminders } from './PatientReminders';
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
@@ -50,7 +48,6 @@ type PatientView =
   | 'symptom-checker'
   | 'consultation'
   | 'pharmacy'
-  | 'medication'
   | 'reminders';
 
 export function PatientDashboard({ onNavigate, onLogout }: PatientDashboardProps) {
@@ -224,8 +221,6 @@ useEffect(() => {
         return <ConsultationInterface />;
       case 'pharmacy':
         return <PharmacyLocator />;
-      case 'medication':
-        return <MedicationSafety />;
       case 'reminders':
         return <PatientReminders />;
       default:
@@ -545,7 +540,6 @@ useEffect(() => {
                   { id: 'symptom-checker', icon: Stethoscope, label: 'Symptom Checker' },
                   { id: 'consultation', icon: MessageSquare, label: 'Consultations' },
                   { id: 'pharmacy', icon: MapPin, label: 'Find Pharmacy' },
-                  { id: 'medication', icon: Pill, label: 'Medication Check' },
                   { id: 'reminders', icon: Bell, label: 'Reminders' },
                 ].map((item) => (
                   <Button
