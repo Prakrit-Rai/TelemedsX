@@ -19,24 +19,33 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
   const [doctorEmail, setDoctorEmail] = useState('');
   const [doctorPassword, setDoctorPassword] = useState('');
 
-  // ✅ Auto login if token already exists
+  // Auto login if token already exists
   useEffect(() => {
 
     const token = localStorage.getItem("token");
-    const user = localStorage.getItem("user");
+    const userData = localStorage.getItem("user");
 
-    if (token && user) {
+    if (!token || !userData) return;
 
-      const parsedUser = JSON.parse(user);
+    try {
+      const user = JSON.parse(userData);
 
-      if (parsedUser.role === "PATIENT") {
-        onLogin("patient");
+      // 🔐 BLOCK IF NOT VERIFIED
+      if (!user?.isVerified) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        return;
       }
 
-      if (parsedUser.role === "DOCTOR") {
+      if (user.role === "PATIENT") {
+        onLogin("patient");
+      } else if (user.role === "DOCTOR") {
         onLogin("doctor");
       }
 
+    } catch (err) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
     }
 
   }, [onLogin]);
@@ -70,11 +79,14 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
 
       }
 
-    } catch (error) {
+    } catch (error: any) {
 
-      console.error("Login Error:", error);
-      alert("Invalid email or password");
+      const message =
+        error?.response?.data ||
+        error?.message ||
+        "Login failed";
 
+      alert(message);
     }
 
   };
@@ -108,11 +120,14 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
 
       }
 
-    } catch (error) {
+    } catch (error: any) {
 
-      console.error("Login Error:", error);
-      alert("Invalid email or password");
+      const message =
+        error?.response?.data ||
+        error?.message ||
+        "Login failed";
 
+      alert(message);
     }
 
   };

@@ -46,4 +46,6 @@ public class User {
 
     @Transient
     private String specialization;
+    
+    private boolean isVerified = false;
 }

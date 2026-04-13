@@ -4,12 +4,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.PostMapping; 
+import org.springframework.web.bind.annotation.GetMapping; 
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.metameds.backend.model.User;
+import com.metameds.backend.model.VerificationToken;
 import com.metameds.backend.security.JwtUtil;
 import com.metameds.backend.service.UserService;
 
@@ -32,20 +35,25 @@ public class AuthController {
 
         // Build User object
         User user = User.builder()
-                .fullName(body.get("name"))
-                .email(body.get("email"))
-                .password(body.get("password"))
-                .phone(body.get("phone"))
-                .role(body.get("role"))
-                .build();
+            .fullName(
+                body.get("fullName") != null 
+                    ? body.get("fullName") 
+                    : body.get("name")
+            )
+            .email(body.get("email"))
+            .password(body.get("password"))
+            .phone(body.get("phone"))
+            .role(body.get("role"))
+            .build();
 
         // Doctor fields (optional)
         // Set doctor fields inside User
         user.setLicenseNumber(body.get("licenseNumber"));
         user.setSpecialization(body.get("specialization"));
-
+        System.out.println("Incoming body: " + body);
         // Call updated service
         return userService.register(user);
+        
     }
 
     // =========================
@@ -67,4 +75,25 @@ public class AuthController {
 
         return response;
     }
+    @GetMapping("/verify")
+    public String verifyEmail(@RequestParam String token) {
+
+        VerificationToken vt = userService.getToken(token);
+
+        if (vt == null) {
+            return "Invalid verification link";
+        }
+
+        User user = vt.getUser();
+
+        if (user.isVerified()) {
+            return "Account already verified";
+        }
+
+        user.setVerified(true);
+        userService.save(user);
+        
+        return "Email verified successfully. You can now login.";
+    }
+    
 }

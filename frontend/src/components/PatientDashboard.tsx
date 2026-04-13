@@ -80,16 +80,22 @@ useEffect(() => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   const loadData = async () => {
-    try {
-      const [appointmentsRes, doctorsRes] = await Promise.all([
-        getPatientAppointments(user.id),
-        getDoctors()
-      ]);
 
-      setUpcomingAppointments(appointmentsRes.data);
-      setDoctors(doctorsRes.data);
-    } catch (err) {
-      console.error("Auto-refresh error", err);
+    const userData = localStorage.getItem("user");
+
+    if (!userData) return; // 🛑 stop if no user
+
+    const user = JSON.parse(userData);
+
+    if (!user?.id) return; // 🛑 stop if id missing
+
+    try {
+      await Promise.all([
+        getPatientAppointments(user.id),
+        // other calls...
+      ]);
+    } catch (error) {
+      console.error("Auto-refresh error", error);
     }
   };
 

@@ -55,8 +55,11 @@ const handlePatientSignup = async (e: React.FormEvent) => {
     const response = await registerUser(user);
     console.log("Registered:", response);
 
-    alert("Patient account created successfully!");
-    onSignup("patient");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    alert("Account created! Please check your email to verify your account.");
+    onNavigate("login");  
 
   } catch (error) {
     console.error("Signup error:", error);
@@ -88,8 +91,11 @@ const handlePatientSignup = async (e: React.FormEvent) => {
       const response = await registerUser(user);
       console.log("Registered:", response);
 
-      alert("Doctor account created successfully!");
-      onSignup("doctor");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      alert("Account created! Please check your email to verify your account.");
+      onNavigate("login");
 
     } catch (error) {
       console.error(error);
