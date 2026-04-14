@@ -9,7 +9,7 @@ import { loginUser } from "../api/auth";
 
 interface LoginPageProps {
   onNavigate: (page: 'landing' | 'login' | 'signup') => void;
-  onLogin: (role: 'patient' | 'doctor') => void;
+  onLogin: (role: 'patient' | 'doctor' | 'admin') => void;
 }
 
 export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
@@ -51,45 +51,39 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
   }, [onLogin]);
 
 
-  const handlePatientLogin = async (e: React.FormEvent) => {
+const handlePatientLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    e.preventDefault();
+  const credentials = {
+    email: patientEmail,
+    password: patientPassword
+  };
 
-    const credentials = {
-      email: patientEmail,
-      password: patientPassword
-    };
+  try {
+    const response = await loginUser(credentials);
 
-    try {
+    localStorage.setItem("token", response.token);
+    localStorage.setItem("user", JSON.stringify(response.user));
 
-      const response = await loginUser(credentials);
-
-      if (response.user.role === "PATIENT") {
-
-        localStorage.setItem("token", response.token);
-        localStorage.setItem("user", JSON.stringify(response.user));
-
-        console.log("Token saved:", response.token);
-
-        onLogin("patient");
-
-      } else {
-
-        alert("This account is not registered as a Patient.");
-
-      }
-
-    } catch (error: any) {
-
-      const message =
-        error?.response?.data ||
-        error?.message ||
-        "Login failed";
-
-      alert(message);
+    if (response.user.role === "PATIENT") {
+      onLogin("patient");
+    } 
+    else if (response.user.role === "ADMIN") {
+      onLogin("admin");   // 🔥 allow admin here
+    } 
+    else {
+      alert("This account is not registered as a Patient.");
     }
 
-  };
+  } catch (error: any) {
+    const message =
+      error?.response?.data ||
+      error?.message ||
+      "Login failed";
+
+    alert(message);
+  }
+};
 
 
   const handleDoctorLogin = async (e: React.FormEvent) => {
@@ -114,7 +108,10 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
 
         onLogin("doctor");
 
-      } else {
+      }else if (response.user.role === "ADMIN") {
+        onLogin("admin");   
+      }  
+      else {
 
         alert("This account is not registered as a Doctor.");
 

@@ -10,7 +10,7 @@ import { registerUser } from "../api/auth";
 
 interface SignupPageProps {
   onNavigate: (page: 'landing' | 'login' | 'signup') => void;
-  onSignup: (role: 'patient' | 'doctor') => void;
+  onSignup: (role: 'patient' | 'doctor' | 'admin') => void;
 }
 
 export function SignupPage({ onNavigate, onSignup }: SignupPageProps) {

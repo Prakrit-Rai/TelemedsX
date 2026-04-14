@@ -29,16 +29,27 @@ public class UserService {
     // =========================
 
     public User register(User user) {
+
         User existingUser = userRepository.findByEmail(user.getEmail());
-        System.out.println("User before save: " + user);
+
         if (existingUser != null) {
             throw new RuntimeException("Email already registered");
-            
         }
 
+        // 🔐 HASH PASSWORD
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+
+        // ✅ SET APPROVAL BEFORE SAVE
+        if ("PATIENT".equalsIgnoreCase(user.getRole())) {
+            user.setApproved(true);
+        } else if ("DOCTOR".equalsIgnoreCase(user.getRole())) {
+            user.setApproved(false);
+        }
+
+        // ✅ SAVE USER
         User savedUser = userRepository.save(user);
 
+        // 👨‍⚕️ CREATE DOCTOR PROFILE
         if ("DOCTOR".equalsIgnoreCase(savedUser.getRole())) {
             DoctorProfile profile = new DoctorProfile();
             profile.setUser(savedUser);
@@ -47,12 +58,9 @@ public class UserService {
             doctorProfileRepository.save(profile);
         }
 
-        // --- NEW VERIFICATION LOGIC START ---
-        // Generate token
+        // 🔐 EMAIL VERIFICATION
         String token = UUID.randomUUID().toString();
 
-        // VerificationToken usually uses a Builder or a standard constructor 
-        // depending on your model definition
         VerificationToken vt = VerificationToken.builder()
                 .token(token)
                 .user(savedUser)
@@ -60,12 +68,9 @@ public class UserService {
 
         verificationTokenRepository.save(vt);
 
-        // Create link
         String verifyLink = "http://localhost:8081/api/auth/verify?token=" + token;
 
-        // Send email
         emailService.sendVerificationEmail(savedUser.getEmail(), verifyLink);
-        // --- NEW VERIFICATION LOGIC END ---
 
         return savedUser;
     }
@@ -91,6 +96,12 @@ public class UserService {
         }
         if (!user.isVerified()) {
             throw new RuntimeException("Please verify your email before logging in.");
+        }
+        // Email verified already checked
+
+
+        if ("DOCTOR".equalsIgnoreCase(user.getRole()) && !user.isApproved()) {
+            throw new RuntimeException("Waiting for admin approval.");
         }
         return user;
     }

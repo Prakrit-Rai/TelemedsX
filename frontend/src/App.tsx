@@ -4,9 +4,9 @@ import { LoginPage } from './components/LoginPage';
 import { SignupPage } from './components/SignupPage';
 import { PatientDashboard } from './components/PatientDashboard';
 import { DoctorDashboard } from './components/DoctorDashboard';
-
-type Page = 'landing' | 'login' | 'signup' | 'patient-dashboard' | 'doctor-dashboard';
-type UserRole = 'patient' | 'doctor' | null;
+import { AdminDashboard } from "./components/AdminDashboard";
+type Page = 'landing' | 'login' | 'signup' | 'patient-dashboard' | 'doctor-dashboard' | 'admin-dashboard';
+type UserRole = 'patient' | 'doctor' | 'admin' | null;
 
 export default function App() {
 
@@ -29,19 +29,27 @@ if (token && user) {
   if (parsedUser.role === "DOCTOR") {
     handleLogin("doctor");
   }
+
+  if (parsedUser.role === "ADMIN") {
+    handleLogin("admin");
+  }
 }
 
 
 }, []);
 
-const handleLogin = (role: 'patient' | 'doctor') => {
+const handleLogin = (role: 'patient' | 'doctor' | 'admin') => {
 setUserRole(role);
 setIsAuthenticated(true);
 
 if (role === 'patient') {
   setCurrentPage('patient-dashboard');
-} else {
+} 
+else if (role === 'doctor') {
   setCurrentPage('doctor-dashboard');
+} 
+else if (role === 'admin') {
+  setCurrentPage('admin-dashboard');
 }
 
 };
@@ -66,6 +74,8 @@ case 'patient-dashboard':
 return <PatientDashboard onNavigate={setCurrentPage} onLogout={handleLogout} />;
 case 'doctor-dashboard':
 return <DoctorDashboard onNavigate={setCurrentPage} onLogout={handleLogout} />;
+case 'admin-dashboard':
+  return <AdminDashboard />;
 default:
 return <LandingPage onNavigate={setCurrentPage} />;
 }

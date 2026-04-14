@@ -48,4 +48,6 @@ public class User {
     private String specialization;
     
     private boolean isVerified = false;
+
+    private boolean isApproved;
 }

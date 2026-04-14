@@ -10,4 +10,5 @@ import com.metameds.backend.model.User;
 public interface DoctorProfileRepository extends JpaRepository<DoctorProfile, Long> {
 
     Optional<DoctorProfile> findByUser(User user);
+    void deleteByUserId(Long userId);
 }
