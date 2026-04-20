@@ -108,7 +108,8 @@ export function AdminDashboard() {
               <LayoutDashboard size={32} className="text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <h1 className="text-2xl fon
+              t-bold text-slate-900 flex items-center gap-2">
                 Admin <span className="text-indigo-600">Dashboard</span>
               </h1>
               <p className="text-lg font-bold text-slate-600">
@@ -273,7 +274,7 @@ export function AdminDashboard() {
                     <div className="flex gap-3">
                       <Button
                         onClick={() => handleApprove(doc.id)}
-                        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs h-10 rounded-xl shadow-sm shadow-emerald-200"
+                        className="flex-1 !bg-emerald-500 hover:!bg-emerald-600 !text-white font-semibold text-xs h-10 rounded-xl shadow-sm"
                       >
                         Approve
                       </Button>

@@ -15,7 +15,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Heart className="w-8 h-8 text-red-500" />
-              <span className="text-xl font-semibold">TelePharm Nepal</span>
+              <span className="text-xl font-semibold">TeleMeds Nepal</span>
             </div>
             <div className="flex items-center gap-3">
               <Button variant="ghost" onClick={() => onNavigate('login')}>
@@ -89,10 +89,6 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
               <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
                 <Pill className="w-6 h-6 text-orange-600" />
               </div>
-              <h3 className="mb-2">Medication Safety</h3>
-              <p className="text-muted-foreground">
-                Automated checks for age, allergies, and safe dosage recommendations.
-              </p>
             </Card>
 
             <Card className="p-6 hover:shadow-lg transition-shadow">
@@ -182,7 +178,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="mb-6">Ready to Get Started?</h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Join thousands of patients who trust TelePharm Nepal for their healthcare needs.
+              Join thousands of patients who trust TeleMeds Nepal for their healthcare needs.
             </p>
             <Button size="lg" onClick={() => onNavigate('signup')}>
               Create Free Account
@@ -195,7 +191,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
       <footer className="border-t py-8 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="text-center text-muted-foreground">
-            <p>© 2026 TelePharm Nepal. Bringing healthcare to every corner of Nepal.</p>
+            <p>© 2026 TeleMeds Nepal. Bringing healthcare to every corner of Nepal.</p>
           </div>
         </div>
       </footer>

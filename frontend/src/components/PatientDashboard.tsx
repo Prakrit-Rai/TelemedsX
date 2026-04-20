@@ -90,10 +90,12 @@ useEffect(() => {
     if (!user?.id) return; // 🛑 stop if id missing
 
     try {
-      await Promise.all([
+      const [appointmentsRes, doctorsRes] = await Promise.all([
         getPatientAppointments(user.id),
-        // other calls...
+        getDoctors()
       ]);
+      setUpcomingAppointments(appointmentsRes.data);
+      setDoctors(doctorsRes.data);
     } catch (error) {
       console.error("Auto-refresh error", error);
     }
